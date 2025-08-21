@@ -6,12 +6,28 @@ from .models import Task
 from .serializers import TaskSerializer
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.pagination import PageNumberPagination
 
-
-
+# Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+# venv\Scripts\activate
 class TaskListCreateView(APIView):
     def get(self, request):
-        tasks = Task.objects.all()
+        status_filter = request.query_params.get('status')
+        get_tasks = Task.objects.all()
+
+        pagination = PageNumberPagination()
+        pagination.page_size=3
+        tasks=pagination.paginate_queryset(get_tasks, request)
+        
+        if status_filter == "completed":
+            tasks= get_tasks.filter(is_completed=True)
+        elif status_filter == "pending":
+            tasks = get_tasks.filter(is_completed=False)
+
+        search = request.query_params.get('search')
+        if search:
+            tasks= get_tasks.filter(title__icontains=search)
+
         serializer = TaskSerializer(tasks, many=True)
         return Response(serializer.data)
     
