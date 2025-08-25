@@ -3,7 +3,7 @@ from django.shortcuts import render
 # Create your views here.
 from rest_framework.views import APIView
 from .models import Task
-from .serializers import TaskSerializer,SignupSerializer
+from .serializers import TaskSerializer,SignupSerializer,ChangePasswordSerializer
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.pagination import PageNumberPagination
@@ -11,8 +11,7 @@ from rest_framework.decorators import api_view,authentication_classes,permission
 from django.contrib.auth.models import User
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.permissions import IsAuthenticated,IsAdminUser
-
-
+from django.contrib.auth.password_validation import validate_password
 
 
 
@@ -98,9 +97,17 @@ def signup_view(request):
             return Response({'error':'user already exists'}, status=status.HTTP_400_BAD_REQUEST)
         user = User(username=serializer.validated_data['username'],
                     email=serializer.validated_data['email'])
-        user.set_password(serializer.validated_data['password'])
+        
+        password = serializer.validated_data['password']
+
+        try:
+            validate_password(password, user)
+        except Exception as e:
+            return Response({'password': list(e.messages)}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.set_password(password)
         user.save()
-        return Response({'message':'user created sucssefully'})
+        return Response({'message':'user created sucssefully'}, status=status.HTTP_201_CREATED)
     return Response(status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -125,4 +132,31 @@ def delete_account_view(request):
         pass
     request.user.delete()
     return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+class ChangePasswordView(APIView):
+
+    def put(self, request):
+        serializer = ChangePasswordSerializer(data=request.data)
+
+        if serializer.is_valid():
+            user = request.user
+            old_password = serializer.validated_data['old_password']
+            new_password = serializer.validated_data['new_password']
+
+            if not user.check_password(old_password):
+                return Response({'old_password':'Wrong_password'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            try:
+                validate_password(new_password, user)
+            except Exception as e:
+                return Response({'new_password': list(e.messages)}, status=status.HTTP_400_BAD_REQUEST)
+            
+            user.set_password(new_password)
+            user.save()
+            return Response({'detail':'Password changed successfully'})
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
