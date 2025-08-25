@@ -19,5 +19,6 @@ class SignupSerializer(serializers.ModelSerializer):
 
 
 class ChangePasswordSerializer(serializers.Serializer):
-    old_password = serializers.CharField(required=True)
-    new_password = serializers.CharField(required=True)
+    old_password = serializers.CharField()
+    new_password = serializers.CharField(write_only=True)
+    
